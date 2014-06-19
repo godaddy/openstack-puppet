@@ -9,6 +9,8 @@ This is meant to be a community reference, and likely cannot be cloned and used
 immediately "out of the box."  You will, at a minimum, need to populate a hiera
 file for all the configuration parameters.
 
+Patches/comments/complaints welcomed and encouraged!  Create an issue or PR here.
+
 Puppet Configuration
 --------------------
 

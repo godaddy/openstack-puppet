@@ -1,7 +1,7 @@
 openstack-puppet
 ================
 
-Go Daddy Puppet module for installing, configuring, and managing OpenStack components.
+Go Daddy Puppet manifests for installing, configuring, and managing OpenStack components.
 
 Deployment managed by r10k.  See the Puppetfile for other Puppet modules used.
 

@@ -1,0 +1,50 @@
+input {
+  rabbitmq {
+<%# These should match up with values in openstack-puppet/logstash_client hierdata -%>
+    debug       => <%= scope['::profile::openstack::logstash::indexer::rmq_debug'] %>
+    host        => "<%= scope['::profile::openstack::logstash::indexer::rmq_host'] -%>"
+    port        => <%= scope['::profile::openstack::logstash::indexer::rmq_port'] %>
+    ssl         => <%= scope['::profile::openstack::logstash::indexer::rmq_ssl'] %>
+    user        => "<%= scope['::profile::openstack::logstash::indexer::rmq_user'] -%>"
+    password    => "<%= scope['::profile::openstack::logstash::indexer::rmq_password'] -%>"
+    vhost       => "<%= scope['::profile::openstack::logstash::indexer::rmq_vhost'] -%>"
+    exchange    => "<%= scope['::profile::openstack::logstash::indexer::rmq_exchange'] -%>"
+    queue       => "<%= scope['::profile::openstack::logstash::indexer::rmq_queue'] -%>"
+    key         => "<%= scope['::profile::openstack::logstash::indexer::rmq_key'] -%>"
+    exclusive   => false
+    durable     => true
+    auto_delete => false
+    type        => "openstack-logstash-messages"
+  }
+
+  # Local logs to also send to ES
+  file {
+    path => ['/var/log/audit/audit.log']
+    tags => ['audit']
+    type => "audit"
+  }
+
+  file {
+    path => ['/var/log/dmesg']
+    tags => ['dmesg', 'kernel']
+    type => "dmesg"
+  }
+
+  file {
+    path => ['/var/log/lastlog']
+    tags => ['lastlog', 'last']
+    type => "lastlog"
+  }
+
+  file {
+    path => ['/var/log/messages']
+    tags => ['syslog']
+    type => "syslog"
+  }
+
+  file {
+    path => ['/var/log/yum.log']
+    tags => ['yum']
+    type => "yum"
+  }
+}

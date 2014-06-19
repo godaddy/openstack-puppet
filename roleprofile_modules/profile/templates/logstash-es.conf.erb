@@ -1,0 +1,15 @@
+input {
+  file {
+    path => ['/var/log/elasticsearch/logstash.log']
+    tags => ['elasticsearch']
+    type => "elasticsearch"
+  }
+}
+filter {
+  if [type] == "elasticsearch" {
+    grok {
+      match => { "message" => "\[%{TIMESTAMP_ISO8601:logdate}\]\[%{NOTSPACE:loglevel}?%{SPACE}\]\[%{NOTSPACE:module}?%{SPACE}\]%{GREEDYDATA:logmessage}" }
+    }
+  }
+}
+

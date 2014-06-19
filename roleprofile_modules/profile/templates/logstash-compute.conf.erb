@@ -1,0 +1,36 @@
+input {
+  file {
+    path => ['/var/log/nova/nova-compute.log']
+    tags => ['nova', 'oslofmt']
+    type => "nova"
+  }
+
+  file {
+    path => ['/var/log/neutron/neutron-openvswitch-agent.log']
+    tags => ['neutron', 'oslofmt']
+    type => "neutron"
+  }
+
+  file {
+    path => ['/var/log/openvswitch/ovsdb-server.log']
+    tags => ['openvswitch']
+    type => "openvswitch"
+  }
+
+  file {
+    path => ['/var/log/openvswitch/ovs-vswitchd.log']
+    tags => ['openvswitch']
+    type => "openvswitch"
+  }
+
+  file {
+    path => ['/var/log/libvirt/libvirtd.log']
+    tags => ['libvirt']
+    type => "libvirt"
+  }
+  file {
+    path => ['/var/log/ceilometer/ceilometer-agent-compute.log']
+    tags => ['ceilometer', 'oslofmt']
+    type => "ceilometer"
+  }
+}

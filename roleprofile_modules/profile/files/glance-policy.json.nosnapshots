@@ -1,0 +1,8 @@
+{
+    "context_is_admin":  "role:admin",
+    "default": "",
+    "manage_image_cache": "role:admin",
+    "add_image": "role:admin",
+    "modify_image": "role:admin",
+    "delete_image": "role:admin"
+}

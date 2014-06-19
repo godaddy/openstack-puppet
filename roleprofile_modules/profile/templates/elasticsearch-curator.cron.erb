@@ -1,0 +1,2 @@
+# Purge old logs from Elasticsearch
+15 2 * * * root /usr/bin/curator --host <%= scope['::hostname'] %> -p logstash- -b <%= @bloom_disable_after_days %> -d <%= @delete_after_days %> -l /var/log/elasticsearch/curator.log

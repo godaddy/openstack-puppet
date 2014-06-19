@@ -1,0 +1,8 @@
+output {
+  elasticsearch_http {
+    index     => "logstash-%{+YYYY.MM.dd}"
+    host      => "<%= scope['::profile::openstack::logstash::indexer::es_host'] -%>"
+    port      => <%= scope['::profile::openstack::logstash::indexer::es_port'] %>
+    workers   => <%= scope['::profile::openstack::logstash::indexer::es_workers'] %>
+  }
+}

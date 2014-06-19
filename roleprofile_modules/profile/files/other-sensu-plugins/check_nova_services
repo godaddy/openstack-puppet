@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+#
+# Nova monitoring script for Nagios
+#
+# Copyright © 2012 eNovance <licensing@enovance.com>
+#
+# Author: Florian Lambert <florian.lambert@enovance.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+#needed python-novaclient
+#https://github.com/openstack/python-novaclient
+
+import sys
+import argparse
+
+from novaclient.v1_1 import client
+from keystoneclient.v2_0 import client as keystoneclient
+
+
+STATE_OK = 0
+STATE_WARNING = 1
+STATE_CRITICAL = 2
+STATE_UNKNOWN = 3
+
+STATE_MESSAGE = "Failed - "
+RETURN_STATE = STATE_OK
+
+
+
+parser = argparse.ArgumentParser(description='Check an OpenStack Nova server.')
+parser.add_argument('--auth_url', metavar='URL', type=str,
+                    required=True,
+                    help='Keystone URL')
+parser.add_argument('--username', metavar='username', type=str,
+                    required=True,
+                    help='username to use for authentication')
+parser.add_argument('--password', metavar='password', type=str,
+                    required=True,
+                    help='password to use for authentication')
+parser.add_argument('--tenant', metavar='tenant', type=str,
+                    required=True,
+                    help='tenant name to use for authentication')
+parser.add_argument('--bypass', metavar='bybass', type=str,
+                    required=False,
+                    help='bypass the service catalog and use this URL for Nova API')
+args = parser.parse_args()
+
+
+
+if args.bypass:
+  try:
+    ks = keystoneclient.Client(username=args.username,
+                               password=args.password,
+                               tenant_name=args.tenant,
+                               auth_url=args.auth_url)
+    args.bypass = args.bypass.replace('%(tenant_id)s', ks.tenant_id)
+
+  except Exception as e:
+    print str(e)
+    sys.exit(STATE_CRITICAL)
+  
+
+try:
+  nt = client.Client(args.username,
+                     args.password,
+                     args.tenant,
+                     args.auth_url,
+                     service_type="compute",
+                     insecure=True)
+                     #insecure=True,
+                     #bypass_url=args.bypass)
+
+except Exception as e:
+    print str(e)
+    sys.exit(STATE_CRITICAL)
+
+try:
+  svcs = nt.services.list(binary="nova-compute")
+  for service in svcs:
+    if service.state != 'up':
+      RETURN_STATE = STATE_CRITICAL
+      STATE_MESSAGE += 'nova-compute on {host} is down, last updated: {updated_at}  '.format(host=service.host, updated_at=service.updated_at)
+
+except Exception as e:
+  print str(e)
+  sys.exit(STATE_CRITICAL)
+
+
+
+if RETURN_STATE != STATE_OK:
+  print STATE_MESSAGE
+else:
+  print "OK - All nova-compute services up"
+
+sys.exit(RETURN_STATE)

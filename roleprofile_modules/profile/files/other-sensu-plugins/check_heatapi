@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+#
+# Heat monitoring script for Nagios
+#
+# Copyright © 2012 eNovance <licensing@enovance.com>
+#
+# Author: Florian Lambert <florian.lambert@enovance.com>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+#needed python-heatclient
+#https://github.com/openstack/python-heatclient
+
+import sys
+import argparse
+
+from heatclient import client
+from keystoneclient.v2_0 import client as keystoneclient
+
+
+STATE_OK = 0
+STATE_WARNING = 1
+STATE_CRITICAL = 2
+STATE_UNKNOWN = 3
+
+STATE_MESSAGE = "Failed -"
+RETURN_STATE = STATE_OK
+
+#2 Warn = 1 Critical
+def return_state(state):
+  global RETURN_STATE
+  global STATE_MESSAGE
+  RETURN_STATE += state
+  if RETURN_STATE > 1:
+    STATE_MESSAGE +=" does not work"
+    print STATE_MESSAGE
+    sys.exit(STATE_CRITICAL)
+
+
+
+parser = argparse.ArgumentParser(description='Check an OpenStack Heat server.')
+parser.add_argument('--auth_url', metavar='URL', type=str,
+                    required=True,
+                    help='Keystone URL')
+parser.add_argument('--username', metavar='username', type=str,
+                    required=True,
+                    help='username to use for authentication')
+parser.add_argument('--password', metavar='password', type=str,
+                    required=True,
+                    help='password to use for authentication')
+parser.add_argument('--tenant', metavar='tenant', type=str,
+                    required=True,
+                    help='tenant name to use for authentication')
+parser.add_argument('--endpoint', metavar='endpoint', type=str,
+                    required=True,
+                    help='endpoint URL for Heat API')
+args = parser.parse_args()
+
+
+
+try:
+  ks = keystoneclient.Client(username=args.username,
+                             password=args.password,
+                             tenant_name=args.tenant, 
+                             auth_url=args.auth_url)
+  args.endpoint = args.endpoint.replace('%(tenant_id)s', ks.tenant_id)
+
+except Exception as e:
+  print str(e)
+  sys.exit(STATE_CRITICAL)
+
+kwargs = {
+            'username': args.username,
+            'password': args.password,
+            'token': ks.auth_ref['token']['id'],
+            'tenant_id': ks.tenant_id,
+            'insecure': True,
+}
+
+try:
+  nt = client.Client('1', args.endpoint, **kwargs)
+
+except Exception as e:
+  print str(e)
+  sys.exit(STATE_CRITICAL)
+
+try:
+  for stack in nt.stacks.list():
+    True
+
+except Exception as e:
+  print str(e)
+  sys.exit(STATE_CRITICAL)
+
+if RETURN_STATE == STATE_WARNING:
+  STATE_MESSAGE +=" does not work"
+  print STATE_MESSAGE
+else:
+  print "OK - Heat-api Connection established"
+
+sys.exit(RETURN_STATE)

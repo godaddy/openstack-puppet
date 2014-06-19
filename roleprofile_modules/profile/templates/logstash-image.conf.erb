@@ -1,0 +1,17 @@
+input {
+  file {
+    path => ['/var/log/glance/api.log']
+    tags => ['glance', 'oslofmt']
+    type => "glance"
+  }
+  file {
+    path => ['/var/log/glance/registry.log']
+    tags => ['glance', 'oslofmt']
+    type => "glance"
+  }
+  file {
+    path => ['/var/log/glance/scrubber.log']
+    tags => ['glance', 'oslofmt']
+    type => "glance"
+  }
+}

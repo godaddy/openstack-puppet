@@ -1,0 +1,2 @@
+# Flush keystone expired tokens. Prevents fast filling table from overloading system.
+30 */1 * * * root /usr/bin/keystone-manage token_flush

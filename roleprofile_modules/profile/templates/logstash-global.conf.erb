@@ -1,0 +1,122 @@
+input {
+  file {
+    path => ['/var/log/audit/audit.log']
+    tags => ['audit']
+    type => "audit"
+  }
+
+  file {
+    path => ['/var/log/dmesg']
+    tags => ['dmesg', 'kernel']
+    type => "dmesg"
+  }
+
+  file {
+    path => ['/var/log/messages']
+    tags => ['syslog']
+    type => "syslog"
+  }
+
+  file {
+    path => ['/var/log/secure']
+    tags => ['secure']
+    type => "secure"
+  }
+
+  file {
+    path => ['/var/log/yum.log']
+    tags => ['yum']
+    type => "yum"
+  }
+}
+
+filter {
+  if "oslofmt" in [tags] {
+    multiline {
+      negate => true
+      pattern => "^%{TIMESTAMP_ISO8601} "
+      what => "previous"
+    }
+    multiline {
+      negate => false
+      pattern => "^%{TIMESTAMP_ISO8601}%{SPACE}%{NUMBER}?%{SPACE}?TRACE"
+      what => "previous"
+    }
+    grok {
+      # Do multiline matching as the above mutliline filter may add newlines
+      # to the log messages.
+      # TODO move the LOGLEVELs into a proper grok pattern.
+      match => { "message" => "(?m)^%{TIMESTAMP_ISO8601:logdate}%{SPACE}%{NUMBER:pid}?%{SPACE}?(?<loglevel>AUDIT|CRITICAL|DEBUG|INFO|TRACE|WARNING|ERROR) \[?\b%{NOTSPACE:module}\b\]?%{SPACE}?%{GREEDYDATA:logmessage}?" }
+      add_field => { "received_at" => "%{@timestamp}" }
+    }
+
+  } else if "keystonefmt" in [tags] {
+    grok {
+      # Do multiline matching as the above mutliline filter may add newlines
+      # to the log messages.
+      # TODO move the LOGLEVELs into a proper grok pattern.
+      match => { "message" => "(?m)^%{TIMESTAMP_ISO8601:logdate}%{SPACE}%{NUMBER:pid}?%{SPACE}?(?<loglevel>AUDIT|CRITICAL|DEBUG|INFO|TRACE|WARNING|ERROR) \[?\b%{NOTSPACE:module}\b\]?%{SPACE}?%{GREEDYDATA:logmessage}?" }
+      add_field => { "received_at" => "%{@timestamp}" }
+    }
+    if [module] == "iso8601.iso8601" {
+  drop {}
+    }
+  } else if "libvirt" in [tags] {
+    grok {
+       match => { "message" => "(?m)^%{TIMESTAMP_ISO8601:logdate}:%{SPACE}%{NUMBER:code}:?%{SPACE}\[?\b%{NOTSPACE:loglevel}\b\]?%{SPACE}?:?%{SPACE}\[?\b%{NOTSPACE:module}\b\]?%{SPACE}?%{GREEDYDATA:logmessage}?" }
+       add_field => { "received_at" => "%{@timestamp}"}
+    }
+    mutate {
+       uppercase => [ "loglevel" ]
+    }
+  } else if [type] == "syslog" {
+     grok {
+        match => { "message" => "%{SYSLOGTIMESTAMP:syslog_timestamp} %{SYSLOGHOST:syslog_hostname} %{DATA:syslog_program}(?:\[%{POSINT:syslog_pid}\])?: %{GREEDYDATA:logmessage}" }
+        add_field => [ "received_at", "%{@timestamp}" ]
+     }
+     syslog_pri {
+        severity_labels => ["ERROR", "ERROR", "ERROR", "ERROR", "WARNING", "INFO", "INFO", "DEBUG" ]
+     }
+     date {
+        match => [ "syslog_timestamp", "MMM  d HH:mm:ss", "MMM dd HH:mm:ss" ]
+     }
+     if !("_grokparsefailure" in [tags]) {
+        mutate {
+           replace => [ "@source_host", "%{syslog_hostname}" ]
+        }
+     }
+     mutate {
+        remove_field => [ "syslog_hostname", "syslog_timestamp" ]
+        add_field => [ "loglevel", "%{syslog_severity}" ]
+        add_field => [ "module", "%{syslog_program}" ]
+     }
+  } else if [type] == "els-notifications" {
+     multiline {
+       negate => true
+       pattern => "^%{TIMESTAMP_ISO8601} "
+       what => "previous"
+     }
+     grok {
+        match => { "message" => "%{TIMESTAMP_ISO8601:logdate}%{SPACE}%{NUMBER:pid}%{SPACE}%{NOTSPACE:loglevel}%{SPACE}%{NOTSPACE:module}?:?%{SPACE}?%{GREEDYDATA:logmessage}?" }
+        add_field => [ "received_at", "%{@timestamp}" ]
+     }
+  }
+}
+
+output {
+  rabbitmq {
+    debug         => <%= scope.lookupvar("::profile::openstack::logstash::agent::mq_debug") %>
+    host          => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_host") -%>"
+    port          => <%= scope.lookupvar("::profile::openstack::logstash::agent::mq_port") %>
+    ssl           => <%= scope.lookupvar("::profile::openstack::logstash::agent::mq_ssl") %>
+    verify_ssl    => false
+    user          => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_user") -%>"
+    password      => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_pass") -%>"
+    exchange      => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_exchange") -%>"
+    vhost         => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_vhost") -%>"
+    exchange_type => "direct"
+    key           => "<%= scope.lookupvar("::profile::openstack::logstash::agent::mq_key") -%>"
+    durable       => true
+    persistent    => true
+  }
+}

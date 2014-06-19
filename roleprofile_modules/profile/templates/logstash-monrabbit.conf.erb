@@ -1,0 +1,22 @@
+#input {
+#  file {
+#    path => ['/var/log/rabbitmq/rabbit@<%= @hostname %>.log']
+#    tags => ['monrabbitmq']
+#    type => "monrabbitmq"
+#    codec => multiline {
+#      pattern => "^="
+#      negate => true
+#      what => previous
+#    }
+#  }
+#}
+filter {
+  if [type] == "monrabbitmq" {
+    if [message] == "" {
+      drop {}
+    }
+    grok {
+      match => { "message" => "(?m)=%{NOTSPACE:loglevel}%{SPACE}REPORT====%{SPACE}%{GREEDYDATA:logmessage}" }
+    }
+  }
+}

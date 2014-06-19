@@ -1,0 +1,87 @@
+#!/bin/bash
+
+function check_root() {
+  if [ $EUID -ne 0 ]; then
+    echo "Must run as root."
+    return 1
+  fi
+  return 0
+}
+
+
+function setup() {
+
+  BRANCH=$1
+
+  if [ -z "$LOCAL" ]; then
+
+    set -x
+    r10k deploy environment $BRANCH -pv || return 1
+    r10k deploy environment hiera_master -pv || return 1
+    set +x
+
+    # Make sure hiera config is current
+    rm -f /etc/puppet/hiera.yaml || return 1
+    cp -f /etc/puppet/hiera/hiera_master/hiera.yaml /etc/puppet/hiera.yaml || return 1
+
+  fi
+
+  return 0
+
+}
+
+
+function runpuppet() {
+
+  ENV=$1
+  BRANCH=$2
+  # Get a sane Puppet environment/directory name
+  BRANCHDIR=`echo $BRANCH | tr - _`
+
+  # Make sure Puppet is configured for future parser, current evaluator
+  grep -q -E '^[[:space:]]*parser[[:space:]]*=' /etc/puppet/puppet.conf
+  if [ $? -eq 0 ]; then
+    sed -i -r 's/parser[[:space:]]*=.*$/parser = future/' /etc/puppet/puppet.conf || return 1
+  else
+    sed -r "s/\[main\]/\[main\]\nparser = future/" -i /etc/puppet/puppet.conf || return 1
+  fi
+
+  grep -q -E '^[[:space:]]*evaluator[[:space:]]*=' /etc/puppet/puppet.conf
+  if [ $? -eq 0 ]; then
+    sed -i -r 's/evaluator[[:space:]]*=.*$/evaluator = current/' /etc/puppet/puppet.conf || return 1
+  else
+    sed -r "s/\[main\]/\[main\]\nevaluator = current/" -i /etc/puppet/puppet.conf || return 1
+  fi
+
+  # Run puppet (possibly in noop mode)
+  [ -n "$RND" -o "$ENV" = "dev" -o "$ENV" = "test" ] && RND="--ordering random"
+  [ -n "$NOOP" ] && NOOP=--noop
+  set -x
+  puppet apply -v --environment=$BRANCHDIR $NOOP $RND /etc/puppet/environments/$BRANCHDIR/manifests
+  set +x
+
+}
+
+
+
+# Make sure we're root
+check_root || exit 1
+
+# Determine environment name based on the command name
+ENV=`echo $0 | sed -r 's/.*deploy-puppet-(.+)$/\1/'`
+[ "$0" = "$ENV" ] && echo "Could not determine environment." && exit 1
+
+BRANCH=$1
+if [ -z "$BRANCH" ]; then
+  case $ENV in
+    stage|prod|appfirst)
+      BRANCH=prod
+      ;;
+    *)
+      BRANCH=master
+      ;;
+  esac
+fi
+
+setup $BRANCH || exit 1
+runpuppet $ENV $BRANCH
